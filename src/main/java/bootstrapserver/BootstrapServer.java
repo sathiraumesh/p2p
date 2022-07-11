@@ -10,9 +10,15 @@ import java.util.StringTokenizer;
 
 public class BootstrapServer {
 
+    DatagramSocket sock = null;
     public static void main(String args[])
     {
-        DatagramSocket sock = null;
+        BootstrapServer server = new BootstrapServer();
+        server.start();
+    }
+
+    public void start(){
+
         String s;
         List<Neighbour> nodes = new ArrayList<Neighbour>();
 
