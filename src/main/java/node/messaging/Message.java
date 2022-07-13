@@ -1,6 +1,4 @@
-package node.request;
-
-import node.Credential;
+package node.messaging;
 
 public abstract class Message {
     public String getMessageAsString(String message) {

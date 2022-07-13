@@ -12,6 +12,27 @@ public class Constants {
 
     public final static int MAX_PORT_NODE = 50000;
 
+    public static class Codes {
+
+        public static class Register {
+            public final static int ERROR_CANNOT_REGISTER = 9996;
+
+            public final static int ERROR_DUPLICATE_IP = 9997;
+
+            public final static int ERROR_ALREADY_REGISTERED = 9998;
+
+            public final static int ERROR_COMMAND = 9999;
+        }
+
+        public static class Search {
+
+            public final static int ERROR_NODE_UNREACHABLE = 9999;
+
+            public final static int ERROR_OTHER = 9998;
+
+        }
+
+    }
     public static class Command {
         public final static String REG = "REG";
 

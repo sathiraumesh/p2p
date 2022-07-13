@@ -47,6 +47,14 @@ public class Main {
             Thread.sleep(2000);
         }
 
+        nodes.stream().forEach(node -> node.Join());
+
+        nodes.get(3).Leave();
+
+        Thread.sleep(2000);
+        nodes.get(3).register();
+        nodes.get(3).Search("American_Idol");
+        Thread.sleep(10000);
         for(int i = 0; i<nodes.size(); i++){
             nodes.get(i).unRegister();
             Thread.sleep(2000);
