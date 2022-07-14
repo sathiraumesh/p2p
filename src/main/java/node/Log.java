@@ -1,15 +1,16 @@
 package node;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.util.Date;
+import java.util.List;
 
 @Data
+@AllArgsConstructor
 public class Log {
-
-    private String searchQuery;
-    private Date triggeredTime;
-    private Date deliveryTime;
-    private int hopsRequired;
-    private Credential servedNode;
+    private List<LogItem> log;
+    private Credential node;
+    public void addLogItem(String msg){
+        log.add(new LogItem(msg, node));
+    }
 }

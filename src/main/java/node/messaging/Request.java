@@ -11,7 +11,6 @@ public class Request extends Message {
     protected String command;
     public String parseRequestAsString() {
         command += " " + credential.getIp() + " " + credential.getPort() + " " + credential.getUsername();
-//        System.out.println(super.getMessageAsString(command));
         return super.getMessageAsString(command);
     }
 }

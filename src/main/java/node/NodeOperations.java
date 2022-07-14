@@ -6,7 +6,7 @@ public interface NodeOperations {
     public void register();
     public void unRegister();
     public void Join();
-    public void Leave();
-    public void Search(String filename);
+    public void leave();
+    public void search(String filename);
 
 }

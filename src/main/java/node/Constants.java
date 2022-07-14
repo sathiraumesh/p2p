@@ -55,5 +55,9 @@ public class Constants {
         public final static String SEARCHOK = "SEROK";
 
         public final static String ERROR = "ERROR";
+
+        public final static String DOWNLOAD = "DOWNLOAD";
+
+        public final static String DOWNLOADOK = "DOWNLOADOK";
     }
 }

@@ -4,15 +4,47 @@ import node.Node;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
+
         Credential bootStrapServerCredential = new Credential(
                 Constants.IP_BOOTSTRAP_SERVER,
                 Constants.PORT_BOOTSTRAP_SERVER,
                 Constants.USERNAME_BOOTSTRAP_SERVER
         );
 
+
+        List<Node> nodes = nodeList(bootStrapServerCredential);
+
+        for (Node node : nodes) {
+            node.unRegister();
+            Thread.sleep(1000);
+        }
+
+        for (Node node : nodes) {
+            node.register();
+            Thread.sleep(1000);
+        }
+
+        nodes.stream().forEach(node -> node.Join());
+        nodes.get(getRandomNodeNumber(10, 0)).search("American_Idol");
+        nodes.get(getRandomNodeNumber(10, 0)).search("Microsoft_Office_2010");
+        nodes.get(getRandomNodeNumber(10, 0)).search("Hacking_for_Dummies");
+        nodes.get(getRandomNodeNumber(10, 0)).leave();
+
+        for (Node node : nodes) {
+            Thread.sleep(1000);
+            System.out.println("node logs");
+            node.getNodeLogs().getLog().forEach(l -> System.out.println(l));
+            System.out.println("---------------");
+            System.out.println(" ");
+        }
+
+    }
+
+    public static List<Node> nodeList(Credential bootStrapServerCredential) throws InterruptedException {
 
         Credential nodeCredential1 = new Credential(
                 "127.0.0.1",
@@ -38,26 +70,55 @@ public class Main {
                 "node4"
         );
 
-        Credential [] credentials = new Credential[]{nodeCredential1, nodeCredential2, nodeCredential3, nodeCredential4};
+        Credential nodeCredential5 = new Credential(
+                "127.0.0.1",
+                6005,
+                "node5"
+        );
+
+        Credential nodeCredential6 = new Credential(
+                "127.0.0.1",
+                6006,
+                "node6"
+        );
+
+        Credential nodeCredential7 = new Credential(
+                "127.0.0.1",
+                6007,
+                "node7"
+        );
+
+        Credential nodeCredential8 = new Credential(
+                "127.0.0.1",
+                6008,
+                "node8"
+        );
+
+        Credential nodeCredential9 = new Credential(
+                "127.0.0.1",
+                6009,
+                "node9"
+        );
+
+        Credential nodeCredential10 = new Credential(
+                "127.0.0.1",
+                6010,
+                "node10"
+        );
+        Credential [] credentials = new Credential[]{
+                nodeCredential1, nodeCredential2, nodeCredential3, nodeCredential4, nodeCredential5, nodeCredential6, nodeCredential7, nodeCredential8, nodeCredential9, nodeCredential10};
         ArrayList<Node> nodes = new ArrayList<>();
         for(int i = 0; i<credentials.length; i++){
             Node node = new Node(bootStrapServerCredential, credentials[i]);
-            node.register();
             nodes.add(node);
-            Thread.sleep(2000);
+            Thread.sleep(1000);
         }
+        return nodes;
+    }
 
-        nodes.stream().forEach(node -> node.Join());
+    private static int getRandomNodeNumber(int upperbound, int lowerbound) {
+        Random rand = new Random();
+        return rand.nextInt(upperbound-lowerbound) + lowerbound;
 
-        nodes.get(3).Leave();
-
-        Thread.sleep(2000);
-        nodes.get(3).register();
-        nodes.get(3).Search("American_Idol");
-        Thread.sleep(10000);
-        for(int i = 0; i<nodes.size(); i++){
-            nodes.get(i).unRegister();
-            Thread.sleep(2000);
-        }
     }
 }

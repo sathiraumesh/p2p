@@ -3,14 +3,13 @@ package node.messaging;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-@AllArgsConstructor
 @Data
-public class LeaveResponse extends Message{
+@AllArgsConstructor
+public class DownloadResponse extends Message{
     private String command;
-    private int code;
-
+    private String fileContent;
     public String parseResponseAsString() {
-        command += " " + code;
+        command += " " + fileContent;
         return super.getMessageAsString(command);
     }
 }

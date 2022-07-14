@@ -1,15 +1,11 @@
 package node;
 
-import com.sun.corba.se.impl.orbutil.closure.Constant;
 import lombok.Data;
 import node.cache.CacheItem;
 import node.cache.NodeCache;
-import node.messaging.JoinResponse;
-import node.messaging.Request;
-import node.messaging.Response;
-import node.messaging.SearchRequest;
+import node.messaging.*;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -28,14 +24,19 @@ public class Node extends Thread implements NodeOperations{
     private DatagramSocket socket;
 
     private List<String> FileList = new ArrayList<>();
-
     private NodeCache cache = new NodeCache(new ArrayList<>());
+    private int joinedNumberOfNodes = 0;
+    private String filesToDownload;
 
+    private Log nodeLogs;
     public Node(Credential bootStrapSeverCredential, Credential nodeCredentials) {
         this.bootStrapSeverCredential = bootStrapSeverCredential;
         this.credential = nodeCredentials;
         this.routingTable = new HashMap<>();
         this.fileList = new ArrayList<>(createFileList());
+        this.filesToDownload = null;
+        this.nodeLogs = new Log(new ArrayList<>(), nodeCredentials);
+        this.nodeLogs.addLogItem("Starting node");
         start();
     }
 
@@ -85,13 +86,13 @@ public class Node extends Thread implements NodeOperations{
                 }
             }
         }else{
-            System.out.println("Cannot Join Network No Neighbours"+ credential.getIp() + credential.getUsername() + credential.getPort());
+            System.out.println(credential.getUsername() +" Cannot Join Network No Neighbours "+ credential.getIp() + " " + credential.getPort());
+            System.out.println("");
         }
-
     }
 
     @Override
-    public void Leave() {
+    public void leave() {
         Request joinRequest = new Request(credential, Constants.Command.LEAVE);
         String msg = joinRequest.parseRequestAsString();
         for (Map.Entry<Credential, Boolean> entry : routingTable.entrySet()) {
@@ -106,9 +107,10 @@ public class Node extends Thread implements NodeOperations{
     }
 
     @Override
-    public void Search(String filename) {
+    public void search(String filename) {
         SearchRequest searchRequest = new SearchRequest(filename, credential, Constants.Command.SEARCH, 0);
         String msg = searchRequest.parseRequestAsString();
+        filesToDownload = filename;
         for (Map.Entry<Credential, Boolean> entry : routingTable.entrySet()) {
             Credential senderCredentials = entry.getKey();
             try {
@@ -131,6 +133,7 @@ public class Node extends Thread implements NodeOperations{
                 socket.receive(packet);
                 String message = new String(packet.getData(), 0, packet.getLength());
                 Credential senderCredentials = new Credential(packet.getAddress().getHostAddress(), packet.getPort(), null);
+                nodeLogs.addLogItem(message);
                 handleRequest(senderCredentials, message);
             }catch (IOException e){
                 e.printStackTrace();
@@ -168,9 +171,16 @@ public class Node extends Thread implements NodeOperations{
                     processSearch(tokenizer, senderNodeCredentials);
                     break;
                 case Constants.Command.SEARCHOK:
-                    processSearch(tokenizer, senderNodeCredentials);
+                    processSearchOK(tokenizer, senderNodeCredentials);
+                    break;
+                case Constants.Command.DOWNLOAD:
+                    processDownload(tokenizer, senderNodeCredentials);
+                    break;
+                case Constants.Command.DOWNLOADOK:
+                    processDownloadOkay(tokenizer, senderNodeCredentials);
+                    break;
                 default:
-                    System.out.println("Cannot Process Request");
+                    System.out.println("Cannot Process Request" + command);
             }
     }
 
@@ -186,8 +196,7 @@ public class Node extends Thread implements NodeOperations{
                 int port = Integer.parseInt(rest.nextToken());
                 routingTable.put(new Credential(ip, port, null), false);
             }
-
-            System.out.println(routingTable.size());
+            System.out.println("Number of nodes to join: " + routingTable.size());
         }else {
             System.out.println("Error in command: " + numOfNodes);
         }
@@ -199,11 +208,12 @@ public class Node extends Thread implements NodeOperations{
             System.out.println("Error in command: " + codeNumber);
             return;
         }
-        System.out.println("Unregister Successful");
+        System.out.println(credential.getUsername() + " Unregister Successful");
+        System.out.println("");
     }
 
     private void processJOIN(StringTokenizer rest, Credential senderCredentials){
-        System.out.println("Sending Join Okay");
+        System.out.println("Joining the network");
         JoinResponse response = new JoinResponse(Constants.Command.JOINOK, 0);
         String msg = response.parseResponseAsString();
         try {
@@ -211,13 +221,19 @@ public class Node extends Thread implements NodeOperations{
         }catch (IOException e){
             e.printStackTrace();
         }
+
+        System.out.println(" ");
     }
 
     private void processJOINOK(StringTokenizer rest, Credential senderCredentials){
-        System.out.println("Making Join Okay Live");
+        System.out.println(credential.getUsername() +" Making Join Okay Live");
         routingTable.put(senderCredentials, true);
+        joinedNumberOfNodes +=1;
+        System.out.println(credential.getUsername()+ " Joined node count: " + joinedNumberOfNodes);
+        System.out.println("");
     }
     private void processLEAVE(StringTokenizer rest, Credential senderCredentials) {
+        System.out.println("Processing Leave");
         JoinResponse response = new JoinResponse(Constants.Command.LEAVEOK, 0);
         String msg = response.parseResponseAsString();
         try {
@@ -225,10 +241,16 @@ public class Node extends Thread implements NodeOperations{
         }catch (IOException e){
             e.printStackTrace();
         }
+
+        System.out.println("");
     }
 
     private void processLEAVEOK(StringTokenizer rest, Credential senderCredentials) {
-        System.out.println("Leave Successfully");
+        System.out.println("Processing Leave Okay");
+        routingTable = new HashMap<>();
+        cache = new NodeCache(new ArrayList<>());
+        System.out.println(credential.getUsername() +" Leave Successfully");
+        System.out.println("");
     }
 
     private void processSearch(StringTokenizer rest, Credential senderCredentials){
@@ -246,13 +268,24 @@ public class Node extends Thread implements NodeOperations{
 
             if (messageAlreadySent){
                 System.out.println("Already sent not sending again");
+                System.out.println(" ");
                 return;
             }
-
             searchNeighbours(fileName, senderIP, senderPort, hops);
+
         }else {
 
+            System.out.println("Sending matching file names");
+            SearchResultResponse response = new SearchResultResponse(Constants.Command.SEARCHOK, credential, fileSearchList.size(), hops, fileSearchList);
+            String msg = response.parseResponseAsString();
+            System.out.println(msg);
+            try {
+                socket.send(new DatagramPacket(msg.getBytes(), msg.getBytes().length, InetAddress.getByName(senderIP), senderPort));
+            }catch (IOException e){
+                e.printStackTrace();
+            }
         }
+        System.out.println(" ");
     }
 
     List<String> searchForFiles(String fileName) {
@@ -262,7 +295,7 @@ public class Node extends Thread implements NodeOperations{
     private void searchNeighbours(String filename, String ip, int port, int hops){
         SearchRequest searchRequest = new SearchRequest(filename, new Credential(ip, port, null), Constants.Command.SEARCH, hops + 1);
         String msg = searchRequest.parseRequestAsString();
-        System.out.println("From search neighbours");
+        System.out.println("Search neighbours");
         System.out.println(msg);
         for (Map.Entry<Credential, Boolean> entry : routingTable.entrySet()) {
             Credential senderCredentials = entry.getKey();
@@ -273,11 +306,68 @@ public class Node extends Thread implements NodeOperations{
                 e.printStackTrace();
             }
         }
+        System.out.println("");
     }
 
     public void processSearchOK(StringTokenizer rest, Credential senderCredentials){
+        System.out.println("Processing Search OK");
+        int numberOfFiles = Integer.parseInt(rest.nextToken());
+        String senderIP = rest.nextToken();
+        int senderPort = Integer.parseInt(rest.nextToken());
+        int hops = Integer.parseInt(rest.nextToken());
 
+        if (numberOfFiles == Constants.Codes.Search.ERROR_NODE_UNREACHABLE){
+            System.out.println("Node Unreachable");
+
+        } else if (numberOfFiles == Constants.Codes.Search.ERROR_OTHER) {
+            System.out.println("Some Other Error occurred");
+
+        } else if (numberOfFiles == 0) {
+            System.out.println("no matching results found");
+
+        } else if (numberOfFiles >=1) {
+            while (rest.hasMoreElements()){
+                String file = rest.nextToken();
+                if (filesToDownload!= null && filesToDownload.equalsIgnoreCase(file)){
+                    System.out.println("contains the file");
+                    sendDownloadRequest(file, senderIP, senderPort);
+                }
+            }
+        }
+        System.out.println("");
     }
+
+    public void sendDownloadRequest(String file, String senderIP, int senderPort ){
+        DownLoadRequest downLoadRequest= new DownLoadRequest(file, credential, Constants.Command.DOWNLOAD);
+        String msg = downLoadRequest.parseRequestAsString();
+        System.out.println(msg);
+        try {
+            socket.send(new DatagramPacket(msg.getBytes(), msg.getBytes().length, InetAddress.getByName(senderIP), senderPort));
+            filesToDownload = null;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println("");
+    }
+    public void processDownload(StringTokenizer rest, Credential senderCredentials){
+        new Thread(()-> {
+            System.out.println("Downloading file");
+            DownloadResponse response = new DownloadResponse(Constants.Command.DOWNLOADOK, "filecontents");
+            String msg = response.parseResponseAsString();
+            System.out.println(msg);
+            try {
+                socket.send(new DatagramPacket(msg.getBytes(), msg.getBytes().length, InetAddress.getByName(credential.getIp()), credential.getPort()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println();
+        }).start();
+    }
+
+    public void processDownloadOkay(StringTokenizer rest, Credential senderCredentials){
+        System.out.println("Processing Downloaded file");
+    }
+
     public List<String> createFileList() {
         ArrayList<String> fileList = new ArrayList<>();
         fileList.add("Adventures_of_Tintin");
@@ -302,7 +392,12 @@ public class Node extends Thread implements NodeOperations{
         fileList.add("Hacking_for_Dummies");
         Collections.shuffle(fileList);
         List<String> subFileList = fileList.subList(0, 5);
+        System.out.println(" ");
         System.out.println("File List : " + Arrays.toString(subFileList.toArray()));
         return subFileList;
+    }
+
+    public void close(){
+        socket.close();
     }
 }
