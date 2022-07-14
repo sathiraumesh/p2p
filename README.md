@@ -1,4 +1,5 @@
 # p2p
+This is a peer to peer system that is using 10 nodes to communicate to search a given filename and download it.
 
 ## setup 
 * Download and Install Maven 4.0 and Setup it in your local machine
